@@ -1,0 +1,8 @@
+7
+LETTER Burnaby Simon Vancouver Bill
+PACKAGE Vancouver Tim Burnaby 300 500
+DAY
+DAY
+PICKUP Burnaby Tim
+PICKUP Vancouver Simon
+DAY
