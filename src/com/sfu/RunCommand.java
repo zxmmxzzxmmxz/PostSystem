@@ -107,21 +107,36 @@ public class RunCommand {
 
 		int idx = 0;
 		int day = 1;
-
+		boolean goodday = false;
+		ArrayList<Integer> indexForDays = new ArrayList<>();
+		indexForDays.add(0);
 		boolean hasPendingDeliverables = hasPendingDeliverables();
+		boolean sneak=false;
 
 		while (idx < commands.size() || hasPendingDeliverables) {
+			if(idx == commands.size())
+				break;
 			//Start of the day, check if any in transit items have arrived
 			network.checkAndDeliver(day);
 
-			for (int i = idx ; i< commands.size() ; i++) {
-				String cmd = commands.get(i);
-				idx = i+1;
+			while(idx< commands.size()) {
+				String cmd = commands.get(idx);
+				idx ++;
 				if (isDayCommand(cmd)) {
-					day++;
+					indexForDays.add(idx);
 					break;
 				}
-
+				
+				if(isGoodCommand(cmd) && goodday){
+					indexForDays.add(idx);
+					while(!isDayCommand(commands.get(idx))){
+						idx++;
+					}
+					idx++;
+					Logging.goodDay();
+					break;
+				}
+				
 				String[] parts = cmd.split(" ");
 				if (isPickupCommand(cmd)) {
 					String dest = parts[1];
@@ -130,7 +145,7 @@ public class RunCommand {
 						Logging.criminalAppended(LogType.FRONT, recipient, dest);
 					} else {
 						Office office = getOffice(dest);
-						office.pickUp(recipient, day);
+						goodday = office.pickUp(recipient, day);
 					}
 				} else if (isLetterCommand(cmd)) {
 					String src = parts[1];
@@ -152,7 +167,7 @@ public class RunCommand {
 
 					boolean hasCriminalRecipient = wanted.contains(letter.getRecipient());
 					boolean officeFull = srcOffice.isFull();
-					if (destOffice != null && !hasCriminalRecipient && !officeFull) {
+					if (destOffice != null && !hasCriminalRecipient && !officeFull && !destOffice.is_destroy()) {
 						srcOffice.accept(letter);
 					} else {
 						Logging.rejectDeliverable(LogType.MASTER, letter);
@@ -181,11 +196,12 @@ public class RunCommand {
 
 					boolean hasCriminalRecipient = wanted.contains(pkg.getRecipient());
 					boolean officeFull = srcOffice.isFull();
-					boolean lengthFitSrc = (length > srcOffice.getMaxPackageLength());
-
-					if (!hasCriminalRecipient && !officeFull
-							&& lengthFitSrc && destOffice != null && (length <= destOffice.getMaxPackageLength())) {
+					boolean lengthFitSrc = (length < srcOffice.getMaxPackageLength());
+					if (sneak || !hasCriminalRecipient && !officeFull
+							&& lengthFitSrc && destOffice != null && (length <= destOffice.getMaxPackageLength()) && pkg.getMoney() >= srcOffice.getRequiredPostage()) {
 						srcOffice.accept(pkg);
+						if(sneak)
+							sneak=false;
 					} else if (pkg.getMoney() >= (srcOffice.getRequiredPostage() + srcOffice.getPersuasionAmount())) {
 						Logging.briberyDetected(LogType.MASTER, pkg);
 						srcOffice.accept(pkg);
@@ -194,11 +210,100 @@ public class RunCommand {
 						Logging.rejectDeliverable(LogType.OFFICE, pkg);
 					}
 				}
+				else if(isBuildCommand(cmd)){
+					String[] things = cmd.split(" ");
+					if (things.length == 7) {
+						Office existingOffice = null;
+						for(Office o : offices){
+							if(o.getName().equals(things[1]))
+								existingOffice = o;
+						}
+						if(existingOffice==null){
+							Office o = new Office(things[1], Integer.parseInt(things[2]), Integer.parseInt(things[3]),Integer.parseInt(things[4]), Integer.parseInt(things[5]), Integer.parseInt(things[6]));
+							offices.add(o);
+							network.populateOffices(o);
+							Logging.addOffice(o);
+						}
+						else{
+							if(!existingOffice.is_destroy()){
+								//destroy logging
+								Logging.officeDestroy(LogType.MASTER, things[1]);
+								Logging.officeDestroy(LogType.OFFICE, things[1]);
+							}
+						}
+						//build loggging
+						Logging.buildOffice(LogType.MASTER, things[1]);
+						Logging.buildOffice(LogType.OFFICE, things[1]);
+					}
+				}
+				else if(isScienceCommand(cmd)){
+					int interval = Integer.parseInt(parts[1]);
+					if(interval<0){
+						if(day+interval<0){
+							for(Office o:offices){
+								o.dropDestroyAll();
+							}
+							Logging.cleanUp();
+							return;
+						}
+						commands.remove(idx-1);
+						idx = indexForDays.get(day+interval);							
+						break;
+					}
+					else if(interval>0){
+						int day_wanted=idx;
+						while(interval>0){
+							while(!isDayCommand(commands.get(idx))){
+								idx++;
+								if(idx>=commands.size()){
+									for(Office o:offices){
+										o.dropDestroyAll();
+									}
+									Logging.cleanUp();
+									return;
+								}
+							}
+							day_wanted = idx+1;
+							idx++;
+							interval--;
+						}
+						idx=day_wanted;
+						continue;
+					}
+				}
+				else if(isDelayCommand(cmd)){
+					//Delay
+					String receipt = parts[1];
+					int delay = Integer.parseInt(parts[2]);
+					for(Office o:offices){
+						o.delay(receipt, delay);
+					}
+					network.delay(receipt, delay);
+				}
+				else if(cmd.startsWith("SNEAK")){
+					sneak = true;
+					continue;
+				}
+				else if(cmd.startsWith("INFLATION")){
+					for(Office o:offices){
+						o.setRequiredPostage(o.itemsInTotal()+o.getRequiredPostage());
+						o.setPersuasionAmount(o.itemsInTotal()+o.getPersuasionAmount());
+					}
+				}
+				else if(cmd.startsWith("DEFLATION")){
+					for(Office o:offices){
+						int amount = o.itemsInTotal();
+						int postage = o.getRequiredPostage();
+						int persuasion = o.getPersuasionAmount();
+						o.setRequiredPostage( (postage-amount>=0)? postage-amount : 0);
+						o.setPersuasionAmount( (persuasion-amount>=0)? persuasion-amount : 0);
+					}
+				}
 			}
 			//End of the day.
 			for (Office o : offices) {
 				// Remove deliverables longer than 14 days
-				//o.drop(day);
+				o.drop(day);
 				// Send accepted deliverables
 				o.sendToNetwork();
 			}
@@ -248,5 +353,21 @@ public class RunCommand {
 
 	static boolean isPackageCommand(String command) {
 		return command.startsWith("PACKAGE");
+	}
+	
+	static boolean isBuildCommand(String command){
+		return command.startsWith("BUILD");
+	}
+	
+	static boolean isScienceCommand(String command){
+		return command.startsWith("SCIENCE");
+	}
+	
+	static boolean isGoodCommand(String command){
+		return command.startsWith("GOOD");
+	}
+	
+	static boolean isDelayCommand(String command){
+		return command.startsWith("NSADELAY");
 	}
 }

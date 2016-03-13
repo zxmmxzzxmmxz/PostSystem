@@ -8,6 +8,7 @@ import java.util.Set;
 import com.sfu.Logging.LogType;
 
 public class Office {
+	private boolean is_destroyed = false;
 	private String name;
 	private int transitTime;
 	private int requiredPostage;
@@ -37,6 +38,21 @@ public class Office {
 		this.maxPackageLength = maxPackageLength;
 	}
 
+	public int itemsInTotal(){
+		return toPickUp.size()+toMail.size();
+	}
+	public void destroy(){
+		this.is_destroyed = true;
+	}
+	
+	public boolean is_destroy(){
+		return this.is_destroyed;
+	}
+	
+	public void rebuild(){
+		this.is_destroyed = false;
+	}
+	
 	public String getName() {
 		return name;
 	}
@@ -122,15 +138,28 @@ public class Office {
 		}
 	}
 
-	public void pickUp(String recipient, int day) {
-		int size = toPickUp.size();
-		for (int idx = size-1 ; idx >= 0 ; idx--) {
-			Deliverable d = toPickUp.get(idx);
-			if (recipient.equals(d.getRecipient())) {
-				toPickUp.remove(idx);
-				Logging.itemComplete(LogType.OFFICE, d, day);
+	public boolean pickUp(String recipient, int day) {
+		boolean goodday = false;
+		if(!is_destroyed){
+			int size = toPickUp.size();
+			for (int idx = size-1 ; idx >= 0 ; idx--) {
+				Deliverable d = toPickUp.get(idx);
+				if (recipient.equals(d.getRecipient())) {
+					Deliverable item = toPickUp.remove(idx);
+					goodday = true;
+					Logging.itemComplete(LogType.OFFICE, d, day);
+					if(item instanceof Letter){
+						Letter letter = (Letter) item;
+						if(wanted.contains(letter.getReturnRecipient())){
+							this.destroy();
+							Logging.officeDestroy(LogType.MASTER, letter.getDestOffice().getName());
+							Logging.officeDestroy(LogType.OFFICE, letter.getDestOffice().getName());
+						}
+					}
+				}
 			}
 		}
+		return goodday;
 	}
 
 	public boolean isFull() {
@@ -138,9 +167,73 @@ public class Office {
 	}
 
 	public boolean isEmpty() {
-		return (this.toMail.size() + this.toPickUp.size()) != 0;
+		return (this.toMail.size() + this.toPickUp.size()) == 0;
+	}
+	
+	public void drop(int day){
+		boolean no_more_drop = false;
+		while(!no_more_drop){
+			if(toPickUp.size()==0)
+				no_more_drop = true;
+			for(int index = 0;index<toPickUp.size();index++){
+				if(day-toPickUp.get(index).getInitDay()>14){
+					if(toPickUp.get(index) instanceof Letter){
+						Letter letter = (Letter)toPickUp.get(index);
+						if(!letter.getReturnRecipient().equals("NONE")){
+							Letter new_return_letter = new Letter();
+							new_return_letter.setReturnRecipient("NONE");
+							new_return_letter.setDestOffice(letter.getIniatingOffice());
+							new_return_letter.setIniatingOffice(this);
+							new_return_letter.setInitDay(day);
+							new_return_letter.setIntendedDest(letter.getIniatingOffice().getName());
+							new_return_letter.setRecipient(letter.getReturnRecipient());
+							this.toMail.add(new_return_letter);
+							Logging.newDeliverable(LogType.OFFICE, new_return_letter);
+							Logging.deliverableAccepted(LogType.OFFICE, new_return_letter);
+							toPickUp.remove(index);
+							break;
+						}
+					}
+					Logging.deliverableDestroyed(LogType.OFFICE, toPickUp.get(index));
+					Logging.deliverableDestroyed(LogType.MASTER, toPickUp.get(index));
+					toPickUp.remove(index);
+					break;
+				}
+				if(index == toPickUp.size()-1)
+					no_more_drop = true;
+			}
+		}
 	}
 
+	public void dropDestroyAll(){
+		for(int index=0;index<toPickUp.size();index++){
+			Deliverable d = toPickUp.get(index);
+			Logging.deliverableDestroyed(LogType.OFFICE, d);
+			Logging.deliverableDestroyed(LogType.MASTER, d);
+		}
+		toPickUp.removeAll(toPickUp);
+		this.destroy();
+		Logging.officeDestroy(LogType.MASTER, this.name);
+		Logging.officeDestroy(LogType.OFFICE, this.name);
+	}
+	
+	public void delay(String name,int delay){
+		boolean no_more_items = false;
+		int index = 0;
+		while(!no_more_items){
+			if(toPickUp.size()==0 || index>= toPickUp.size()-1)
+				no_more_items = true;
+			for(index = 0;index<toPickUp.size();index++){
+				if(toPickUp.get(index).getRecipient().equals(name)){
+					Deliverable d = toPickUp.remove(index);
+					d.setDelay(delay);
+					this.network.put(d);
+					break;
+				}
+			}
+		}
+	}
+	
 	@Override
 	public boolean equals(Object obj) {
 		return (obj instanceof Office) && (this.name.equals(((Office)obj).getName()));

@@ -6,6 +6,15 @@ public class Deliverable {
 	private String intendedDest;
 	private String recipient;
 	private int initDay;
+	private int delay=0;
+	
+	public int getDelay(){
+		return delay;
+	}
+	
+	public void setDelay(int delay){
+		this.delay = delay;
+	}
 
 	public int getInitDay() {
 		return initDay;

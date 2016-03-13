@@ -1,8 +1,21 @@
-7
-LETTER Burnaby Simon Vancouver Bill
-PACKAGE Vancouver Tim Burnaby 300 500
+20
+LETTER Vancouver Tom Burnaby Adam
+LETTER Vancouver Jim Burnaby Bill
+DEFLATION
+PACKAGE Vancouver Bob Burnaby 7 3500
+PACKAGE Vancouver Nix Burnaby 8 3500
+PACKAGE Vancouver Simon Burnaby 10006 4500
+PACKAGE Vancouver Fraser Burnaby 10004 4500
+LETTER Vancouver Cindy Burnaby Bill
+LETTER Vancouver Wendy Burnaby Bob
+LETTER Vancouver Candy Burnaby Ben
+LETTER Vancouver Lol Burnaby Ben
+LETTER Vancouver King Burnaby Ben
+LETTER Vancouver Jim Burnaby Ben
+LETTER Vancouver Jim Burnaby Nix
+LETTER Vancouver Jim Burnaby Wendy
+DEFLATION
+PACKAGE Vancouver Bob Burnaby 9985 4500
 DAY
 DAY
-PICKUP Burnaby Tim
-PICKUP Vancouver Simon
 DAY

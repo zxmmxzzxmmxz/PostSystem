@@ -28,6 +28,12 @@ public class Logging {
 		}
 	}
 
+	public static void addOffice(Office office) throws FileNotFoundException,UnsupportedEncodingException{
+		String baseDir = System.getProperty("user.dir");
+		PrintWriter new_writer = new PrintWriter(baseDir +"\\Output\\log_" + office.getName() + ".txt", "UTF-8");
+		officeWriterMap.put(office.getName(), new_writer);
+	}
+	
 	static private PrintWriter getWriter (LogType type, String officeName) {
 		if (type == LogType.MASTER) {
 			return masterWriter;
@@ -65,7 +71,7 @@ public class Logging {
 
 	static public void rejectDeliverable(LogType type, Deliverable d) {
 		String src = d.getIniatingOffice().getName();
-		String dest = d.getDestOffice() != null ? d.getIntendedDest() : d.getDestOffice().getName();
+		String dest = d.getDestOffice() != null ? d.getDestOffice().getName() : d.getIntendedDest();
 		  
 		PrintWriter w = getWriter(type, src);
 		if (w != null) {
@@ -74,13 +80,13 @@ public class Logging {
 			} else {
 				w.println("- Rejected package -");
 			}
-			w.println("Source: " + dest);
+			w.println("Source: " + src);
 		}
 	}
 
 	static public void deliverableAccepted(LogType type, Deliverable d) {
 		String src = d.getIniatingOffice().getName();
-		String dest = d.getDestOffice().getName();
+		String dest = d.getDestOffice()!=null ? d.getDestOffice().getName() : d.getIntendedDest();
 		PrintWriter w = getWriter(type, src);
 		if (w != null) {
 			if (d instanceof Letter) {
@@ -106,7 +112,7 @@ public class Logging {
 	}
 
 	static public void briberyDetected(LogType type, Deliverable d) {
-		String src = d.getDestOffice().getName();
+		String src = d.getIniatingOffice().getName();
 		PrintWriter w = getWriter(type, src);
 		if (w != null) {
             w.println("- Something funny going on... -");
@@ -119,7 +125,7 @@ public class Logging {
 		PrintWriter w = getWriter(type, src);
 		if (w != null) {
             w.println("- Delivery process complete -");
-			w.println("Delivery took " + (day - d.getInitDay()) + " days");
+			w.println("Delivery took " + (day - d.getInitDay()+1) + " days");
 		}
 	}
 
@@ -142,6 +148,27 @@ public class Logging {
 		if (w != null) {
             w.println("- Criminal appended -");
             w.println("Criminal name: " + criminalName + " at office: " + office);
+		}
+	}
+	
+	static public void officeDestroy(LogType type,String office){
+		PrintWriter w = getWriter(type,office);
+		if(w != null){
+			w.println("- "+office+" OFFICE DESTROYED -");
+		}
+	}
+	
+	static public void buildOffice(LogType type,String office){
+		PrintWriter w = getWriter(type,office);
+		if(w != null){
+			w.println("- "+office+" OFFICE BUILD -");
+		}
+	}
+	
+	static public void goodDay(){
+		PrintWriter w = getWriter(LogType.MASTER,null);
+		if(w != null){
+			w.println("- It was a good day! -");
 		}
 	}
 
