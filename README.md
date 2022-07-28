@@ -3,6 +3,7 @@
 
 #Input
   The system will load three files: wanted.txt, postoffice.txt and commands.txt
+  
 #Input files descriptions
   wanted.txt contains names forbidden from entering the system.
   Postoffice.txt contains post offices dealing mail/parcel delivery related affairs.
